@@ -1,0 +1,17 @@
+{
+  "name": "Haskell Dev",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceFolder": "/app",
+  "mounts": ["source=${localWorkspaceFolder},target=/app,type=bind,consistency=cached"],
+  "settings": {
+    "terminal.integrated.shell.linux": "/bin/bash",
+    "git.enabled": true
+  },
+  "extensions": [
+    "haskell.haskell"
+  ],
+  "postCreateCommand": "cabal build"
+}
