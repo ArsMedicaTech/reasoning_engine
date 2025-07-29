@@ -5,11 +5,15 @@ FROM haskell:9.6 as builder
 # Set work directory
 WORKDIR /app
 
-# Copy your Haskell source files
-COPY . .
+COPY reasoning-engine.cabal .
+
+RUN echo "main :: IO ()\nmain = putStrLn \"Hello, World!\"" > Main.hs
 
 # Optional: build dependencies first (caching layer)
 RUN cabal update && cabal build --only-dependencies
+
+# Copy your Haskell source files
+COPY . .
 
 # Build the project
 RUN cabal build
