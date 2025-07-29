@@ -1,4 +1,9 @@
 {-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE OverloadedStrings #-}
+
+import Web.Scotty
+import qualified Data.Text.Lazy as T
+import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 
 import GHC.Generics (Generic)
 import Data.Map (Map)
@@ -7,19 +12,19 @@ import Data.Maybe (fromMaybe)
 import Data.List (nub)
 
 -- Clinical Concept IDs
-type TermId = String
+type TermId = T.Text
 
 -- Term with name and relationships
 data Term = Term
   { termId :: TermId
-  , name :: String
+  , name :: T.Text
   , parents :: [TermId]     -- "is-a" relationships
   , properties :: [Property]
   } deriving (Show, Generic)
 
 -- Arbitrary key-value metadata for the term
 data Property
-  = Property String String
+  = Property T.Text T.Text  -- e.g., "causedBy" "SARS-CoV-2"
   deriving (Show, Eq)
 
 -- A simple term store as a map
@@ -52,12 +57,18 @@ inheritProperties ontology tid =
       directProps = maybe [] properties (Map.lookup tid ontology)
   in nub (directProps ++ ancestorProps)
 
-main :: IO ()
-main = do
-  let covidAncestors = getAncestors exampleOntology "C3"
-  putStrLn "Ancestors of COVID-19:"
-  mapM_ print covidAncestors
+-- API endpoints
+getNameById :: TermId -> T.Text
+getNameById "C3" = "COVID-19"
+getNameById "C2" = "Viral Infection"
+getNameById "C1" = "Infection"
+getNameById _    = "Unknown Term"
 
-  let covidProps = inheritProperties exampleOntology "C3"
-  putStrLn "\nProperties inherited by COVID-19:"
-  mapM_ print covidProps
+main :: IO ()
+main = scotty 8080 $ do
+  middleware logStdoutDev
+
+  get "/reasoning/term/:id" $ do
+    termId <- param "id"
+    let name = getNameById termId
+    json (Map.fromList [("id", termId), ("name", name)] :: Map.Map T.Text T.Text)
