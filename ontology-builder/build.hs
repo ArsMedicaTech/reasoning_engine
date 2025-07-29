@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE DeriveGeneric #-}
 
+import GHC.Generics (Generic)
 import qualified Data.ByteString.Lazy          as BL
 import qualified Data.ByteString.Short         as BSS
 import qualified Data.Text                     as TS
@@ -10,7 +12,8 @@ import qualified Data.Text.Lazy                as TL
 import qualified Data.Vector                   as V
 import qualified Data.HashMap.Strict           as HM
 import           System.Environment            (getArgs)
-import           Data.Binary                   (encodeFile)
+import           Data.Binary                   (Binary(..), encodeFile)
+import Data.Hashable (Hashable)
 
 import           Data.List                     (isPrefixOf)
 import           Control.Monad                 (forM_)
@@ -21,6 +24,10 @@ type ConceptId = Integer
 type Term      = BSS.ShortByteString
 
 type OntologyMap = HM.HashMap ConceptId Term
+
+instance (Binary k, Binary v, Hashable k) => Binary (HM.HashMap k v) where
+  put = put . HM.toList
+  get = HM.fromList <$> get
 
 -- | Fields in `sct2_Description_Full-en_US.txt` (tab-delimited)
 -- id	effectiveTime	active	moduleId	conceptId	languageCode	typeId	term	caseSignificanceId
