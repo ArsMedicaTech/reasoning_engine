@@ -49,6 +49,13 @@ instance FromJSON Property
 -- A simple term store as a map
 type Ontology = Map TermId Term
 
+-- | Load binary snapshot at startup
+loadOntology :: FilePath -> IO Ontology
+loadOntology = decodeFile   -- will throw if file missing/corrupt → crash early
+
+instance Binary Term
+instance Binary Property
+
 -- Example mini-ontology (like SNOMED)
 exampleOntology :: Ontology
 exampleOntology = Map.fromList
@@ -84,8 +91,11 @@ getNameById "C1" = "Infection"
 getNameById _    = "Unknown Term"
 
 main :: IO ()
-main = scotty 8080 $ do
-  middleware logStdoutDev
+main = do
+  ontology <- decodeFile "ontology.bin" :: IO Ontology
+  let runner = flip runReaderT ontology
+  scottyT 8080 runner $ do
+    middleware logStdoutDev
 
   get "/reasoning/term/:id" $ do
     termId <- param "id"
