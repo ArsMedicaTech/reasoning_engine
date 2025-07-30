@@ -33,12 +33,18 @@ data Term = Term
   , name :: T.Text
   , parents :: [TermId]     -- "is-a" relationships
   , properties :: [Property]
-  } deriving (Show, Generic)
+  } deriving (Show, Eq, Generic)
+
+instance ToJSON Term
+instance FromJSON Term
 
 -- Arbitrary key-value metadata for the term
 data Property
   = Property T.Text T.Text  -- e.g., "causedBy" "SARS-CoV-2"
-  deriving (Show, Eq)
+  deriving (Show, Eq, Generic)
+
+instance ToJSON Property
+instance FromJSON Property
 
 -- A simple term store as a map
 type Ontology = Map TermId Term
