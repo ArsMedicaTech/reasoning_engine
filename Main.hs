@@ -97,7 +97,15 @@ main = do
   scottyT 8080 runner $ do
     middleware logStdoutDev
 
-  get "/reasoning/term/:id" $ do
-    termId <- param "id"
-    let name = getNameById termId
-    json (Map.fromList [("id", termId), ("name", name)] :: Map.Map T.Text T.Text)
+    Scotty.get "/reasoning/term/:id" $ do
+      termId   <- param "id"          -- termId :: T.Text   (lazy)
+      ontology <- lift ask            -- ontology :: Map T.Text Term
+      case Map.lookup termId ontology of
+        Just term -> json term
+        Nothing   -> do
+          status status404
+          json ("Not Found" :: T.Text)
+
+-- | Helpers
+readMaybeTL :: T.Text -> Maybe Integer
+readMaybeTL = readMaybe . T.unpack
