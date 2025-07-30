@@ -31,9 +31,15 @@ RUN mkdir data && \
     aws s3 cp s3://${AWS_ONTOLOGY_S3_BUCKET}/SNOMED.zip data/SNOMED.zip && \
     unzip data/SNOMED.zip -d data
 
+# Confirm `data/sct2_Description_Full-en_US.txt` exists
+RUN if [ ! -f data/sct2_Description_Full-en_${FILE_DATE}.txt ]; then \
+    echo "File data/sct2_Description_Full-en_${FILE_DATE}.txt not found!"; \
+    exit 1; \
+  fi
+
 # Run your parser, output ontology.bin
 RUN /app/bin/ontology-builder \
-      --desc-file data/sct2_Description_Full-en_US${FILE_DATE}.txt \
-      --out ontology.bin
+      data/sct2_Description_Full-en_${FILE_DATE}.txt \
+      /app/ontology.bin
 
-RUN aws s3 cp ontology.bin s3://${AWS_ONTOLOGY_S3_BUCKET}/ontology.bin
+RUN aws s3 cp /app/ontology.bin s3://${AWS_ONTOLOGY_S3_BUCKET}/ontology.bin
