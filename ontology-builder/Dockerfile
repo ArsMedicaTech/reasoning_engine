@@ -14,7 +14,7 @@ WORKDIR /app
 # Copy Haskell parser and build it
 COPY . .
 
-RUN cabal update && cabal build
+RUN cabal update && cabal install exe:ontology-builder --installdir=/app/bin --install-method=copy
 
 # Configure S3 access via env or volume
 # e.g., AWS_PROFILE, AWS_ONTOLOGY_S3_ACCESS_KEY_ID, AWS_ONTOLOGY_S3_SECRET_ACCESS_KEY
