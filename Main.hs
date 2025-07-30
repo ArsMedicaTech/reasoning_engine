@@ -1,8 +1,20 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
 
-import Web.Scotty
+import Web.Scotty.Trans                 ( ScottyT, ActionT, scottyT, status
+                                          , middleware, param, json )
+import qualified Web.Scotty.Trans as Scotty
+import Network.HTTP.Types.Status (status404)
+import Text.Read (readMaybe)
+import Data.Aeson (ToJSON, FromJSON)
 import qualified Data.Text.Lazy as T
+import qualified Data.ByteString.Short        as  BSS
+import qualified Data.HashMap.Strict          as  HM
+import           Data.Binary                     ( Binary(..), decodeFile )
+import qualified Data.Binary as Bin
+import           Data.Hashable                   ( Hashable )
+import Control.Monad.Trans (lift)
+import           Control.Monad.Trans.Reader      ( ReaderT, ask, runReaderT )
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
 
 import GHC.Generics (Generic)
@@ -10,6 +22,7 @@ import Data.Map (Map)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Data.List (nub)
+import qualified Data.Text as TS
 
 -- Clinical Concept IDs
 type TermId = T.Text

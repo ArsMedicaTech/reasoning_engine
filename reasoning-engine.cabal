@@ -6,8 +6,16 @@ build-type:          Simple
 executable reasoning-engine
   main-is:             Main.hs
   build-depends:       base >=4.14 && <5,
+                       mtl,
+                       transformers,
+                       hashable,
+                       binary,
+                       bytestring,
+                       unordered-containers,
                        containers,
                        scotty,
                        wai-extra,
+                       http-types,
+                       aeson,
                        text
   default-language:    Haskell2010
