@@ -14,7 +14,8 @@ RUN apt-get update && apt-get install -y unzip awscli && rm -rf /var/lib/apt/lis
 WORKDIR /app
 
 # Copy Haskell parser and build it
-COPY . .
+COPY ./build.hs ./build.hs
+COPY ./ontology-builder.cabal ./ontology-builder.cabal
 
 RUN cabal update && cabal install exe:ontology-builder --installdir=/app/bin --install-method=copy
 
