@@ -6,6 +6,8 @@ ARG AWS_ONTOLOGY_S3_ACCESS_KEY_ID
 ARG AWS_ONTOLOGY_S3_SECRET_ACCESS_KEY
 ARG AWS_ONTOLOGY_S3_BUCKET
 
+ENV FILE_DATE=US1000124_20240901
+
 # Install unzip + AWS CLI (v2 for SSO or v1 for credentials file)
 RUN apt-get update && apt-get install -y unzip awscli && rm -rf /var/lib/apt/lists/*
 
@@ -29,8 +31,8 @@ RUN mkdir data && \
     unzip data/SNOMED.zip -d data
 
 # Run your parser, output ontology.bin
-RUN ./dist/build/ontology-builder/ontology-builder \
-      --desc-file data/sct2_Description_Full-en_US*.txt \
+RUN /app/bin/ontology-builder \
+      --desc-file data/sct2_Description_Full-en_US${FILE_DATE}.txt \
       --out ontology.bin
 
 RUN aws s3 cp ontology.bin s3://${AWS_ONTOLOGY_S3_BUCKET}/ontology.bin
