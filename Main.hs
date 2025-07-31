@@ -114,6 +114,9 @@ main = do
   let runner = flip runReaderT ontology
   scottyT 8080 runner $ do
     middleware logStdoutDev
+    
+    Scotty.get "/healthz" $ do
+      json ("OK" :: T.Text)
 
     Scotty.get "/reasoning/term/:id" $ do
       termId   <- param "id"          -- termId :: T.Text   (lazy)
