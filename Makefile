@@ -10,7 +10,7 @@ auth:
 
 BUILD_ARGS=--build-arg AWS_ONTOLOGY_S3_ACCESS_KEY_ID=$(AWS_ONTOLOGY_S3_ACCESS_KEY_ID) --build-arg AWS_ONTOLOGY_S3_SECRET_ACCESS_KEY=$(AWS_ONTOLOGY_S3_SECRET_ACCESS_KEY) --build-arg AWS_ONTOLOGY_S3_BUCKET=$(AWS_ONTOLOGY_S3_BUCKET)
 
-REASONING_ENGINE_BUILD_ARGS=$(BUILD_ARGS)
+REASONING_ENGINE_BUILD_ARGS=
 
 reasoning-engine-docker:
 	docker build -t $(DOCKER_REGISTRY)/$(REASONING_ENGINE_IMAGE):$(REASONING_ENGINE_VERSION) $(REASONING_ENGINE_BUILD_ARGS) -f ./Dockerfile .
@@ -21,8 +21,11 @@ reasoning-engine-docker:
 docker-build:
 	docker build -t reasoning-engine .
 
+
+ENV_VARS=-e AWS_ACCESS_KEY_ID=$(AWS_ONTOLOGY_S3_ACCESS_KEY_ID) -e AWS_SECRET_ACCESS_KEY=$(AWS_ONTOLOGY_S3_SECRET_ACCESS_KEY) -e AWS_ONTOLOGY_S3_BUCKET=$(AWS_ONTOLOGY_S3_BUCKET)
+
 docker-run:
-	docker run --rm reasoning-engine
+	docker run --rm $(ENV_VARS) -p 8080:8080 reasoning-engine
 
 
 run:
