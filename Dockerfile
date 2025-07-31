@@ -13,7 +13,7 @@ RUN echo "main :: IO ()\nmain = putStrLn \"Hello, World!\"" > Main.hs
 RUN cabal update && cabal build --only-dependencies
 
 # Copy your Haskell source files
-COPY . .
+COPY ./Main.hs ./Main.hs
 
 # Build the project
 RUN cabal build
