@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 import Web.Scotty.Trans                 ( ScottyT, ActionT, scottyT, status
                                           , middleware, param, json )
@@ -7,6 +8,7 @@ import qualified Web.Scotty.Trans as Scotty
 import Network.HTTP.Types.Status (status404)
 import Text.Read (readMaybe)
 import Data.Aeson (ToJSON, FromJSON)
+import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Lazy as T
 import qualified Data.ByteString.Short        as  BSS
 import qualified Data.HashMap.Strict          as  HM
@@ -50,8 +52,20 @@ instance FromJSON Property
 type Ontology = Map TermId Term
 
 -- | Load binary snapshot at startup
-loadOntology :: FilePath -> IO Ontology
-loadOntology = decodeFile   -- will throw if file missing/corrupt → crash early
+type Onto = HM.HashMap Integer BSS.ShortByteString
+
+instance (Binary k, Hashable k) => Binary (HM.HashMap k BSS.ShortByteString) where
+  put = put . HM.toList
+  get = HM.fromList <$> get
+
+loadOntology :: IO Ontology
+loadOntology = do
+  onto <- decodeFile "/app/ontology.bin" :: IO Onto
+  let toLazy t = T.fromStrict (TE.decodeUtf8 (BSS.fromShort t))
+      pairs   = [ let tid = toLazy txt
+                  in  (tid, Term tid (toLazy txt) [] [])
+                | (cid, txt) <- HM.toList onto ]
+  return $ Map.fromList pairs
 
 instance Binary Term
 instance Binary Property
@@ -92,7 +106,11 @@ getNameById _    = "Unknown Term"
 
 main :: IO ()
 main = do
-  ontology <- decodeFile "ontology.bin" :: IO Ontology
+  ontology <- loadOntology
+
+  putStrLn "Sample keys in ontology:"
+  mapM_ print (take 10 (Map.keys ontology))
+
   let runner = flip runReaderT ontology
   scottyT 8080 runner $ do
     middleware logStdoutDev
