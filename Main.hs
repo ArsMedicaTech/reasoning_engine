@@ -17,37 +17,40 @@ import qualified Data.Map.Strict as Map
 import Data.List (nub)
 import Control.Monad (forM_)
 
--- Clinical Concept IDs
+---------------------------------------------------
+-- ## 1. ALIGNED DATA STRUCTURES ##
+---------------------------------------------------
+
 type TermId = T.Text
 
--- Term with name and relationships
-data Term = Term
-  { termId :: TermId
-  , name :: T.Text
-  , parents :: [TermId]     -- "is-a" relationships
-  , properties :: [Property]
-  } deriving (Show, Eq, Generic)
-
-instance ToJSON Term
-instance FromJSON Term
-
--- Arbitrary key-value metadata for the term
-data Property
-  = Property T.Text T.Text  -- e.g., "causedBy" "SARS-CoV-2"
+data RelationshipType
+  = IsA
+  | CausedBy
+  | FindingSite
   deriving (Show, Eq, Generic)
 
-instance ToJSON Property
-instance FromJSON Property
+data Relationship = Relationship
+  { relationshipType :: RelationshipType
+  , targetId       :: TermId
+  } deriving (Show, Eq, Generic)
 
--- A simple term store as a map
+data Term = Term
+  { termId        :: TermId
+  , name          :: T.Text
+  , relationships :: [Relationship]
+  } deriving (Show, Eq, Generic)
+
 type Ontology = Map TermId Term
 
--- | Load binary snapshot at startup
-type Onto = HM.HashMap Integer BSS.ShortByteString
+-- Instances for API (JSON) and file loading (Binary)
+instance ToJSON RelationshipType
+instance ToJSON Relationship
+instance ToJSON Term
 
-instance (Binary k, Hashable k) => Binary (HM.HashMap k BSS.ShortByteString) where
-  put = put . HM.toList
-  get = HM.fromList <$> get
+instance Binary RelationshipType
+instance Binary Relationship
+instance Binary Term
+
 
 loadOntology :: IO Ontology
 loadOntology = do
