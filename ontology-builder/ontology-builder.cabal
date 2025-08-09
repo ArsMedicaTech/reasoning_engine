@@ -7,6 +7,7 @@ executable ontology-builder
   main-is:             build.hs
   build-depends:       base >=4.14 && <5,
                        containers == 0.6.7,
+                       cassava,
                        bytestring == 0.11.5.4,
                        binary == 0.8.9.1,
                        vector,
