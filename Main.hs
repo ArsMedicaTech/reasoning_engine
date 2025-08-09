@@ -87,11 +87,15 @@ findByTarget ontology relType target =
   ) [] ontology
 
 
+---------------------------------------------------
+-- ## 4. MAIN SERVER LOGIC ##
+---------------------------------------------------
 
 main :: IO ()
 main = do
   ontology <- loadOntology
 
+  putStrLn $ "✅ Ontology loaded with " ++ show (Map.size ontology) ++ " concepts."
   putStrLn "Sample keys in ontology:"
   mapM_ print (take 10 (Map.keys ontology))
 
@@ -102,6 +106,8 @@ main = do
     Scotty.get "/healthz" $ do
       json ("OK" :: T.Text)
 
+    -- Basic term lookup
+    -- Example: /reasoning/term/75478009 (gets the term for "Pneumonia")
     Scotty.get "/reasoning/term/:id" $ do
       termId   <- param "id"          -- termId :: T.Text   (lazy)
       ontology <- lift ask            -- ontology :: Map T.Text Term
@@ -110,6 +116,32 @@ main = do
         Nothing   -> do
           status status404
           json ("Not Found" :: T.Text)
+    
+    
+    -- ## REASONING ENDPOINTS ## --
+
+    -- Check the "is-a" relationship (subsumption)
+    -- Example: /reasoning/is-a/40963005/75478009 (Is "Viral pneumonia" a type of "Pneumonia"?) -> true
+    Scotty.get "/reasoning/is-a/:childId/:parentId" $ do
+      childId  <- param "childId"
+      parentId <- param "parentId"
+      onto <- lift ask
+      json $ isA onto childId parentId
+
+    -- Find all diseases caused by a specific agent (inverse query)
+    -- Example: /reasoning/diseases-caused-by/49872002 (Find diseases caused by "Coronavirus")
+    Scotty.get "/reasoning/diseases-caused-by/:agentId" $ do
+      agentId <- param "agentId"
+      onto <- lift ask
+      json $ findByTarget onto CausedBy agentId
+
+    -- Get all ancestors of a concept
+    -- Example: /reasoning/ancestors/840539006 (Get ancestors of "COVID-19")
+    Scotty.get "/reasoning/ancestors/:id" $ do
+        termId <- param "id"
+        onto <- lift ask
+        json $ getAncestors onto termId
+
 
 -- | Helpers
 readMaybeTL :: T.Text -> Maybe Integer
