@@ -70,14 +70,6 @@ loadOntology = do
 instance Binary Term
 instance Binary Property
 
--- Example mini-ontology (like SNOMED)
-exampleOntology :: Ontology
-exampleOntology = Map.fromList
-  [ ("C1", Term "C1" "Infection" [] [])
-  , ("C2", Term "C2" "Viral Infection" ["C1"] [])
-  , ("C3", Term "C3" "COVID-19" ["C2"] [Property "causedBy" "SARS-CoV-2"])
-  , ("C4", Term "C4" "Bacterial Infection" ["C1"] [])
-  ]
 
 -- Recursively get all ancestors ("is-a" hierarchy)
 getAncestors :: Ontology -> TermId -> [TermId]
@@ -97,12 +89,6 @@ inheritProperties ontology tid =
       directProps = maybe [] properties (Map.lookup tid ontology)
   in nub (directProps ++ ancestorProps)
 
--- API endpoints
-getNameById :: TermId -> T.Text
-getNameById "C3" = "COVID-19"
-getNameById "C2" = "Viral Infection"
-getNameById "C1" = "Infection"
-getNameById _    = "Unknown Term"
 
 main :: IO ()
 main = do
