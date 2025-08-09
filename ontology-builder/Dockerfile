@@ -39,7 +39,9 @@ RUN if [ ! -f data/sct2_Description_Full-en_${FILE_DATE}.txt ]; then \
 
 # Run your parser, output ontology.bin
 RUN /app/bin/ontology-builder \
+      data/sct2_Concept_Full_${FILE_DATE}.txt \
       data/sct2_Description_Full-en_${FILE_DATE}.txt \
+      data/sct2_Relationship_Full_${FILE_DATE}.txt \
       /app/ontology.bin
 
 RUN aws s3 cp /app/ontology.bin s3://${AWS_ONTOLOGY_S3_BUCKET}/ontology.bin

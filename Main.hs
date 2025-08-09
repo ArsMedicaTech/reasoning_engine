@@ -2,112 +2,101 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-import Web.Scotty.Trans                 ( ScottyT, ActionT, scottyT, status
-                                          , middleware, param, json )
+import Web.Scotty.Trans (ScottyT, scottyT, status, param, json, middleware)
 import qualified Web.Scotty.Trans as Scotty
 import Network.HTTP.Types.Status (status404)
-import Text.Read (readMaybe)
-import Data.Aeson (ToJSON, FromJSON)
-import qualified Data.Text.Encoding as TE
+import Data.Aeson (ToJSON)
 import qualified Data.Text.Lazy as T
-import qualified Data.ByteString.Short        as  BSS
-import qualified Data.HashMap.Strict          as  HM
-import           Data.Binary                     ( Binary(..), decodeFile )
-import qualified Data.Binary as Bin
-import           Data.Hashable                   ( Hashable )
-import Control.Monad.Trans (lift)
-import           Control.Monad.Trans.Reader      ( ReaderT, ask, runReaderT )
+import Data.Binary (Binary(..), decodeFile)
+import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
+import Control.Monad.Trans (lift)
 
 import GHC.Generics (Generic)
-import Data.Map (Map)
-import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
+import Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
 import Data.List (nub)
-import qualified Data.Text as TS
+import Control.Monad (forM_)
 
--- Clinical Concept IDs
+---------------------------------------------------
+-- ## 1. ALIGNED DATA STRUCTURES ##
+---------------------------------------------------
+
 type TermId = T.Text
 
--- Term with name and relationships
-data Term = Term
-  { termId :: TermId
-  , name :: T.Text
-  , parents :: [TermId]     -- "is-a" relationships
-  , properties :: [Property]
-  } deriving (Show, Eq, Generic)
-
-instance ToJSON Term
-instance FromJSON Term
-
--- Arbitrary key-value metadata for the term
-data Property
-  = Property T.Text T.Text  -- e.g., "causedBy" "SARS-CoV-2"
+data RelationshipType
+  = IsA
+  | CausedBy
+  | FindingSite
   deriving (Show, Eq, Generic)
 
-instance ToJSON Property
-instance FromJSON Property
+data Relationship = Relationship
+  { relationshipType :: RelationshipType
+  , targetId       :: TermId
+  } deriving (Show, Eq, Generic)
 
--- A simple term store as a map
+data Term = Term
+  { termId        :: TermId
+  , name          :: T.Text
+  , relationships :: [Relationship]
+  } deriving (Show, Eq, Generic)
+
 type Ontology = Map TermId Term
 
--- | Load binary snapshot at startup
-type Onto = HM.HashMap Integer BSS.ShortByteString
+-- Instances for API (JSON) and file loading (Binary)
+instance ToJSON RelationshipType
+instance ToJSON Relationship
+instance ToJSON Term
 
-instance (Binary k, Hashable k) => Binary (HM.HashMap k BSS.ShortByteString) where
-  put = put . HM.toList
-  get = HM.fromList <$> get
+instance Binary RelationshipType
+instance Binary Relationship
+instance Binary Term
+
+
+---------------------------------------------------
+-- ## 2. SIMPLIFIED LOADING ##
+---------------------------------------------------
 
 loadOntology :: IO Ontology
-loadOntology = do
-  onto <- decodeFile "/app/ontology.bin" :: IO Onto
-  let toLazy t = T.fromStrict (TE.decodeUtf8 (BSS.fromShort t))
-      pairs   = [ let tid = toLazy txt
-                  in  (tid, Term tid (toLazy txt) [] [])
-                | (cid, txt) <- HM.toList onto ]
-  return $ Map.fromList pairs
+loadOntology = decodeFile "/app/ontology.bin"
 
-instance Binary Term
-instance Binary Property
 
--- Example mini-ontology (like SNOMED)
-exampleOntology :: Ontology
-exampleOntology = Map.fromList
-  [ ("C1", Term "C1" "Infection" [] [])
-  , ("C2", Term "C2" "Viral Infection" ["C1"] [])
-  , ("C3", Term "C3" "COVID-19" ["C2"] [Property "causedBy" "SARS-CoV-2"])
-  , ("C4", Term "C4" "Bacterial Infection" ["C1"] [])
-  ]
+---------------------------------------------------
+-- ## 3. REASONING FUNCTIONS ##
+---------------------------------------------------
 
--- Recursively get all ancestors ("is-a" hierarchy)
+getTransitiveRelations :: Ontology -> RelationshipType -> TermId -> [TermId]
+getTransitiveRelations ontology relType tid = case Map.lookup tid ontology of
+  Nothing -> []
+  Just term ->
+    let direct = [targetId r | r <- relationships term, relationshipType r == relType]
+        indirect = concatMap (getTransitiveRelations ontology relType) direct
+    in nub (direct ++ indirect)
+
 getAncestors :: Ontology -> TermId -> [TermId]
-getAncestors ontology tid =
-  case Map.lookup tid ontology of
-    Nothing -> []
-    Just term ->
-      let directParents = parents term
-          indirect = concatMap (getAncestors ontology) directParents
-      in nub (directParents ++ indirect)
+getAncestors ontology = getTransitiveRelations ontology IsA
 
--- Inherit properties from ancestors
-inheritProperties :: Ontology -> TermId -> [Property]
-inheritProperties ontology tid =
-  let ancestors = getAncestors ontology tid
-      ancestorProps = concatMap (\aid -> maybe [] properties (Map.lookup aid ontology)) ancestors
-      directProps = maybe [] properties (Map.lookup tid ontology)
-  in nub (directProps ++ ancestorProps)
+isA :: Ontology -> TermId -> TermId -> Bool
+isA ontology childId parentId = parentId `elem` getAncestors ontology childId
 
--- API endpoints
-getNameById :: TermId -> T.Text
-getNameById "C3" = "COVID-19"
-getNameById "C2" = "Viral Infection"
-getNameById "C1" = "Infection"
-getNameById _    = "Unknown Term"
+findByTarget :: Ontology -> RelationshipType -> TermId -> [Term]
+findByTarget ontology relType target =
+  Map.foldr (\term acc ->
+    if any (\r -> relationshipType r == relType && targetId r == target) (relationships term)
+    then term : acc
+    else acc
+  ) [] ontology
+
+
+---------------------------------------------------
+-- ## 4. MAIN SERVER LOGIC ##
+---------------------------------------------------
 
 main :: IO ()
 main = do
   ontology <- loadOntology
 
+  putStrLn $ "Ontology loaded with " ++ show (Map.size ontology) ++ " concepts."
   putStrLn "Sample keys in ontology:"
   mapM_ print (take 10 (Map.keys ontology))
 
@@ -118,6 +107,8 @@ main = do
     Scotty.get "/healthz" $ do
       json ("OK" :: T.Text)
 
+    -- Basic term lookup
+    -- Example: /reasoning/term/75478009 (gets the term for "Pneumonia")
     Scotty.get "/reasoning/term/:id" $ do
       termId   <- param "id"          -- termId :: T.Text   (lazy)
       ontology <- lift ask            -- ontology :: Map T.Text Term
@@ -126,7 +117,28 @@ main = do
         Nothing   -> do
           status status404
           json ("Not Found" :: T.Text)
+    
+    
+    -- ## REASONING ENDPOINTS ## --
 
--- | Helpers
-readMaybeTL :: T.Text -> Maybe Integer
-readMaybeTL = readMaybe . T.unpack
+    -- Check the "is-a" relationship (subsumption)
+    -- Example: /reasoning/is-a/40963005/75478009 (Is "Viral pneumonia" a type of "Pneumonia"?) -> true
+    Scotty.get "/reasoning/is-a/:childId/:parentId" $ do
+      childId  <- param "childId"
+      parentId <- param "parentId"
+      onto <- lift ask
+      json $ isA onto childId parentId
+
+    -- Find all diseases caused by a specific agent (inverse query)
+    -- Example: /reasoning/diseases-caused-by/49872002 (Find diseases caused by "Coronavirus")
+    Scotty.get "/reasoning/diseases-caused-by/:agentId" $ do
+      agentId <- param "agentId"
+      onto <- lift ask
+      json $ findByTarget onto CausedBy agentId
+
+    -- Get all ancestors of a concept
+    -- Example: /reasoning/ancestors/840539006 (Get ancestors of "COVID-19")
+    Scotty.get "/reasoning/ancestors/:id" $ do
+        termId <- param "id"
+        onto <- lift ask
+        json $ getAncestors onto termId
