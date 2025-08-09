@@ -60,23 +60,32 @@ loadOntology :: IO Ontology
 loadOntology = decodeFile "/app/ontology.bin"
 
 
--- Recursively get all ancestors ("is-a" hierarchy)
-getAncestors :: Ontology -> TermId -> [TermId]
-getAncestors ontology tid =
-  case Map.lookup tid ontology of
-    Nothing -> []
-    Just term ->
-      let directParents = parents term
-          indirect = concatMap (getAncestors ontology) directParents
-      in nub (directParents ++ indirect)
+---------------------------------------------------
+-- ## 3. REASONING FUNCTIONS ##
+---------------------------------------------------
 
--- Inherit properties from ancestors
-inheritProperties :: Ontology -> TermId -> [Property]
-inheritProperties ontology tid =
-  let ancestors = getAncestors ontology tid
-      ancestorProps = concatMap (\aid -> maybe [] properties (Map.lookup aid ontology)) ancestors
-      directProps = maybe [] properties (Map.lookup tid ontology)
-  in nub (directProps ++ ancestorProps)
+getTransitiveRelations :: Ontology -> RelationshipType -> TermId -> [TermId]
+getTransitiveRelations ontology relType tid = case Map.lookup tid ontology of
+  Nothing -> []
+  Just term ->
+    let direct = [targetId r | r <- relationships term, relationshipType r == relType]
+        indirect = concatMap (getTransitiveRelations ontology relType) direct
+    in nub (direct ++ indirect)
+
+getAncestors :: Ontology -> TermId -> [TermId]
+getAncestors ontology = getTransitiveRelations ontology IsA
+
+isA :: Ontology -> TermId -> TermId -> Bool
+isA ontology childId parentId = parentId `elem` getAncestors ontology childId
+
+findByTarget :: Ontology -> RelationshipType -> TermId -> [Term]
+findByTarget ontology relType target =
+  Map.foldr (\term acc ->
+    if any (\r -> relationshipType r == relType && targetId r == target) (relationships term)
+    then term : acc
+    else acc
+  ) [] ontology
+
 
 
 main :: IO ()
