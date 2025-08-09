@@ -52,17 +52,12 @@ instance Binary Relationship
 instance Binary Term
 
 
-loadOntology :: IO Ontology
-loadOntology = do
-  onto <- decodeFile "/app/ontology.bin" :: IO Onto
-  let toLazy t = T.fromStrict (TE.decodeUtf8 (BSS.fromShort t))
-      pairs   = [ let tid = toLazy txt
-                  in  (tid, Term tid (toLazy txt) [] [])
-                | (cid, txt) <- HM.toList onto ]
-  return $ Map.fromList pairs
+---------------------------------------------------
+-- ## 2. SIMPLIFIED LOADING ##
+---------------------------------------------------
 
-instance Binary Term
-instance Binary Property
+loadOntology :: IO Ontology
+loadOntology = decodeFile "/app/ontology.bin"
 
 
 -- Recursively get all ancestors ("is-a" hierarchy)
