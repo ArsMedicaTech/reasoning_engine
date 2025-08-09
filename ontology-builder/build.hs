@@ -5,6 +5,7 @@ import GHC.Generics (Generic)
 import System.Environment (getArgs)
 import Data.Foldable (foldl')
 import qualified Data.ByteString.Lazy as BL
+import qualified Data.ByteString.Lazy.Char8 as BLC
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -68,10 +69,17 @@ snomedRelIdToType _           = Nothing -- Ignore others for now
 -- TSV parsing options for SNOMED files
 tsvOptions :: DecodeOptions
 tsvOptions = defaultDecodeOptions {
-    decDelimiter = fromIntegral (ord '\t'),
+    decDelimiter = fromIntegral (ord '\t')
     -- Tell cassava not to treat quotes as special characters.
-    decQuoting   = QuoteNone
+    -- Not working. Skipping for now. decQuoting   = QuoteNone
 }
+
+-- Helper function to read a file and strip out all double-quote characters.
+readAndCleanFile :: FilePath -> IO BL.ByteString
+readAndCleanFile path = do
+    content <- BL.readFile path
+    return $ BLC.filter (/= '"') content
+
 
 main :: IO ()
 main = do
@@ -83,7 +91,7 @@ main = do
       -- ## PASS 1: CONCEPTS ##
       -- Create a skeleton map from the Concepts file.
       putStrLn "  -> Pass 1: Loading concepts..."
-      conceptData <- BL.readFile conceptFile
+      conceptData <- readAndCleanFile conceptFile
       let conceptRecords = decodeWith tsvOptions NoHeader conceptData :: Either String (V.Vector (V.Vector T.Text))
       let initialOntology = case conceptRecords of
             Left err -> error $ "Concept parsing error: " ++ err
@@ -100,7 +108,7 @@ main = do
       -- ## PASS 2: DESCRIPTIONS ##
       -- Populate the 'name' field using Preferred Terms.
       putStrLn "  -> Pass 2: Populating names..."
-      descData <- BL.readFile descriptionFile
+      descData <- readAndCleanFile descriptionFile
       let descRecords = decodeWith tsvOptions NoHeader descData :: Either String (V.Vector (V.Vector T.Text))
       let ontologyWithNames = case descRecords of
             Left err -> error $ "Description parsing error: " ++ err
@@ -118,7 +126,7 @@ main = do
       -- ## PASS 3: RELATIONSHIPS ##
       -- Build the connections between concepts.
       putStrLn "  -> Pass 3: Building relationships..."
-      relData <- BL.readFile relationshipFile
+      relData <- readAndCleanFile relationshipFile
       let relRecords = decodeWith tsvOptions NoHeader relData :: Either String (V.Vector (V.Vector T.Text))
       let finalOntology = case relRecords of
             Left err -> error $ "Relationship parsing error: " ++ err
