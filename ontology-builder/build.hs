@@ -67,7 +67,11 @@ snomedRelIdToType _           = Nothing -- Ignore others for now
 
 -- TSV parsing options for SNOMED files
 tsvOptions :: DecodeOptions
-tsvOptions = defaultDecodeOptions { decDelimiter = fromIntegral (ord '\t') }
+tsvOptions = defaultDecodeOptions {
+    decDelimiter = fromIntegral (ord '\t'),
+    -- Tell cassava not to treat quotes as special characters.
+    decQuoting   = QuoteNone
+}
 
 main :: IO ()
 main = do
