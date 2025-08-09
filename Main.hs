@@ -96,7 +96,7 @@ main :: IO ()
 main = do
   ontology <- loadOntology
 
-  putStrLn $ "✅ Ontology loaded with " ++ show (Map.size ontology) ++ " concepts."
+  putStrLn $ "Ontology loaded with " ++ show (Map.size ontology) ++ " concepts."
   putStrLn "Sample keys in ontology:"
   mapM_ print (take 10 (Map.keys ontology))
 
