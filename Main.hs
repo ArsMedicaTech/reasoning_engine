@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE FlexibleInstances #-}
 
-import Web.Scotty.Trans (ScottyT, scottyT, status, param, json, middleware, lift)
+import Web.Scotty.Trans (ScottyT, scottyT, status, param, json, middleware)
 import qualified Web.Scotty.Trans as Scotty
 import Network.HTTP.Types.Status (status404)
 import Data.Aeson (ToJSON)
@@ -10,6 +10,7 @@ import qualified Data.Text.Lazy as T
 import Data.Binary (Binary(..), decodeFile)
 import Control.Monad.Trans.Reader (ReaderT, ask, runReaderT)
 import Network.Wai.Middleware.RequestLogger (logStdoutDev)
+import Control.Monad.Trans (lift)
 
 import GHC.Generics (Generic)
 import Data.Map.Strict (Map)
