@@ -8,6 +8,7 @@ import qualified Data.ByteString.Lazy as BL
 import qualified Data.Map.Strict as Map
 import qualified Data.Text as T
 import qualified Data.Vector as V
+import Data.Char (ord)
 
 -- The 'cassava' library for robust TSV parsing
 import Data.Csv
