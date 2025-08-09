@@ -142,8 +142,3 @@ main = do
         termId <- param "id"
         onto <- lift ask
         json $ getAncestors onto termId
-
-
--- | Helpers
-readMaybeTL :: T.Text -> Maybe Integer
-readMaybeTL = readMaybe . T.unpack
